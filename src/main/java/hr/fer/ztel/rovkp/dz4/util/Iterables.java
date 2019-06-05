@@ -1,5 +1,6 @@
 package hr.fer.ztel.rovkp.dz4.util;
 
+import java.util.Iterator;
 import java.util.function.Function;
 
 public class Iterables {
@@ -39,6 +40,14 @@ public class Iterables {
             sum += keyExtractor.apply(value);
         }
         return sum;
+    }
+
+    public static <T> int size(Iterable<T> iterable) {
+        int i = 0;
+        for (Iterator<T> iter = iterable.iterator(); iter.hasNext(); iter.next()) {
+            i++;
+        }
+        return i;
     }
 
 }
