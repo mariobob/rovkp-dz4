@@ -3,6 +3,7 @@ package hr.fer.ztel.rovkp.dz4.zad1;
 import lombok.Builder;
 import lombok.Value;
 
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.StringJoiner;
 
@@ -35,6 +36,9 @@ import java.util.StringJoiner;
 @Value
 @Builder
 public class SensorscopeReading implements Comparable<SensorscopeReading> {
+
+    /** Compares {@code SensorscopeReading} objects by time since epoch. */
+    public static final Comparator<SensorscopeReading> EPOCH_COMPARATOR = Comparator.comparingLong(SensorscopeReading::getTimeSinceEpoch);
 
     private final long stationID;
     private final int year;
@@ -142,7 +146,7 @@ public class SensorscopeReading implements Comparable<SensorscopeReading> {
 
     @Override
     public int compareTo(SensorscopeReading other) {
-        return Long.compare(timeSinceEpoch, other.timeSinceEpoch);
+        return EPOCH_COMPARATOR.compare(this, other);
     }
 
 }
