@@ -1,6 +1,6 @@
 package hr.fer.ztel.rovkp.dz4.zad1;
 
-import hr.fer.ztel.rovkp.dz4.zad1.util.FileUtility;
+import hr.fer.ztel.rovkp.dz4.util.FileUtility;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -38,13 +38,21 @@ public class Main {
     /**
      * Program entry point.
      *
-     * @param args not used
+     * @param args input directory with sensorscope files
+     *             and output csv file, both optional
      */
     public static void main(String[] args) {
-        SensorscopeFileReader reader = new SensorscopeFileReader(INPUT_DIRECTORY);
+        Path inputDirectory = INPUT_DIRECTORY;
+        Path outputFile = OUTPUT_FILE;
+        if (args.length == 2) {
+            inputDirectory = Paths.get(args[0]);
+            outputFile = Paths.get(args[1]);
+        }
+
+        SensorscopeFileReader reader = new SensorscopeFileReader(inputDirectory);
 
         try (Stream<SensorscopeReading> readings = reader.getReadingsFromSensorscopeFiles();
-             PrintWriter writer = new PrintWriter(Files.newBufferedWriter(OUTPUT_FILE))) {
+             PrintWriter writer = new PrintWriter(Files.newBufferedWriter(outputFile))) {
 
             readings.sorted(Comparator.comparing(SensorscopeReading::getTimeSinceEpoch))
                     .map(SensorscopeReading::toCSV)

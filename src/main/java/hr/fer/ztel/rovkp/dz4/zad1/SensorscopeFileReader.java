@@ -1,6 +1,6 @@
 package hr.fer.ztel.rovkp.dz4.zad1;
 
-import hr.fer.ztel.rovkp.dz4.zad1.util.FileUtility;
+import hr.fer.ztel.rovkp.dz4.util.FileUtility;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

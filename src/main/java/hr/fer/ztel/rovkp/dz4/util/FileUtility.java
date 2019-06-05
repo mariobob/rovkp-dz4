@@ -1,4 +1,4 @@
-package hr.fer.ztel.rovkp.dz4.zad1.util;
+package hr.fer.ztel.rovkp.dz4.util;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -8,6 +8,11 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 public class FileUtility {
+
+    /**
+     * Disable instantiation.
+     */
+    private FileUtility() {}
 
     /**
      * Checks if the specified <tt>path</tt> exists . This method is designed
