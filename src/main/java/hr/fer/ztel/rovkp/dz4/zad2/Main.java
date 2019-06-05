@@ -4,11 +4,12 @@ import hr.fer.ztel.rovkp.dz4.util.Iterables;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
-import java.util.Map;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -60,17 +61,17 @@ public class Main {
         // Begin building string
         StringBuilder sb = new StringBuilder();
 
+        // TODO Do not collect immediately but use Spark's 'min' function
         sb.append("1) Most unpopular male name: ");
         String mostUnpopularMaleName = records
                 .filter(USBabyNameRecord::isMale)
                 .groupBy(USBabyNameRecord::getName)
                 .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
-                .collectAsMap()
-                .entrySet()
+                .collect()
                 .stream()
-                .min(Comparator.comparingInt(Map.Entry::getValue))
+                .min(Comparator.comparingInt(Tuple2::_2))
                 .get()
-                .getKey();
+                ._1();
         sb.append(mostUnpopularMaleName).append("\n\n");
 
         sb.append("2) 10 most popular female names: ");
@@ -78,38 +79,68 @@ public class Main {
                 .filter(USBabyNameRecord::isFemale)
                 .groupBy(USBabyNameRecord::getName)
                 .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
-                .collectAsMap()
-                .entrySet()
+                .collect()
                 .stream()
-                .sorted(Comparator.comparing(Map.Entry::getValue, Comparator.reverseOrder()))
+                .sorted(Comparator.comparing(Tuple2::_2, Comparator.reverseOrder()))
                 .limit(10)
-                .map(Map.Entry::getKey)
+                .map(Tuple2::_1)
                 .collect(Collectors.joining(", "));
         sb.append(most10PopularFemaleNames).append("\n\n");
 
-        sb.append("3) State where most children was born in 1948: ");
+        // TODO Do not collect immediately but use Spark's 'max' function
+        sb.append("3) State where most children were born in 1948: ");
         String stateWithMostChildrenBorn = records
                 .groupBy(USBabyNameRecord::getState)
                 .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
-                .collectAsMap()
-                .entrySet()
+                .collect()
                 .stream()
-                .max(Comparator.comparing(Map.Entry::getValue))
+                .max(Comparator.comparing(Tuple2::_2))
                 .get()
-                .getKey();
+                ._1();
         sb.append(stateWithMostChildrenBorn).append("\n\n");
 
         sb.append("4) Number of newborns throughout the years: ");
-        // TODO 2.4.
+        List<Tuple2<Integer, Integer>> newbornsByYear = records
+                .groupBy(USBabyNameRecord::getYear)
+                .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
+                .sortByKey()
+                .collect();
+        newbornsByYear.forEach(pair -> sb.append("\n").append(pair._1).append(": ").append(pair._2));
+        sb.append("\n\n");
 
+        // TODO String doesn't get included
         sb.append("5) Percentage of name 'Lucy' throughout the years: ");
-        // TODO 2.5.
+        records
+                .filter(record -> "Lucy".equals(record.getName()))
+                .groupBy(USBabyNameRecord::getYear)
+                .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
+                .sortByKey()
+                .foreach(pair -> {
+                    double percent = 100.0 * pair._2 / newbornsByYear.stream().filter(p -> pair._1.equals(p._1)).findFirst().get()._2;
+                    sb.append("\n").append(pair._1).append(": ").append(String.format("%.2f", percent));
+                });
+        sb.append("\n\n");
 
         sb.append("6) Total number of children born: ");
-        // TODO 2.6.
+        long numChildrenBorn = newbornsByYear
+                .stream()
+                .mapToLong(Tuple2::_2)
+                .sum();
+        sb.append(numChildrenBorn).append("\n\n");
 
         sb.append("7) Number of unique names: ");
-        // TODO 2.7.
+        long numUniqueNames = records
+                .groupBy(USBabyNameRecord::getName)
+                .keys()
+                .count();
+        sb.append(numUniqueNames).append("\n\n");
+
+        sb.append("8) Number of unique states: ");
+        long numUniqueStates = records
+                .groupBy(USBabyNameRecord::getState)
+                .keys()
+                .count();
+        sb.append(numUniqueStates).append("\n\n");
 
         System.out.println(sb);
     }
