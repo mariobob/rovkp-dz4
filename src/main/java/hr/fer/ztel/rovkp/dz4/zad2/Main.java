@@ -72,6 +72,7 @@ public class Main {
         // Begin building string
         StringBuilder sb = new StringBuilder();
 
+        long start1 = System.currentTimeMillis();
         sb.append("1) Most unpopular male name: ");
         String mostUnpopularMaleName = records
                 .filter(USBabyNameRecord::isMale)
@@ -80,7 +81,9 @@ public class Main {
                 .min(TUPLE_COMPARING_INT)
                 ._1();
         sb.append(mostUnpopularMaleName).append("\n\n");
+        long end1 = System.currentTimeMillis();
 
+        long start2 = System.currentTimeMillis();
         sb.append("2) 10 most popular female names: ");
         String most10PopularFemaleNames = records
                 .filter(USBabyNameRecord::isFemale)
@@ -91,7 +94,9 @@ public class Main {
                 .map(Tuple2::_1)
                 .collect(Collectors.joining(", "));
         sb.append(most10PopularFemaleNames).append("\n\n");
+        long end2 = System.currentTimeMillis();
 
+        long start3 = System.currentTimeMillis();
         sb.append("3) State where most children were born in 1948: ");
         String stateWithMostChildrenBorn = records
                 .groupBy(USBabyNameRecord::getState)
@@ -99,7 +104,9 @@ public class Main {
                 .max(TUPLE_COMPARING_INT)
                 ._1();
         sb.append(stateWithMostChildrenBorn).append("\n\n");
+        long end3 = System.currentTimeMillis();
 
+        long start4 = System.currentTimeMillis();
         sb.append("4) Number of newborns throughout the years: ");
         JavaPairRDD<Integer, Integer> newbornsByYearRDD = records
                 .groupBy(USBabyNameRecord::getYear)
@@ -109,10 +116,12 @@ public class Main {
                 .map(pair -> String.format("\n%d: %d", pair._1, pair._2))
                 .reduce(String::concat);
         sb.append(numberOfNewbornsPerYear).append("\n\n");
+        long end4 = System.currentTimeMillis();
 
         // Save these few records locally as map entries for fast search
         Map<Integer, Integer> newbornsByYearMap = newbornsByYearRDD.collectAsMap();
 
+        long start5 = System.currentTimeMillis();
         sb.append("5) Percentage of name 'Lucy' throughout the years: ");
         String percentageOfNamePerYear = records
                 .filter(record -> "Lucy".equals(record.getName()))
@@ -125,29 +134,47 @@ public class Main {
                 })
                 .reduce(String::concat);
         sb.append(percentageOfNamePerYear).append("\n\n");
+        long end5 = System.currentTimeMillis();
 
+        long start6 = System.currentTimeMillis();
         sb.append("6) Total number of children born: ");
         long numChildrenBorn = newbornsByYearRDD
                 .map(Tuple2::_2)
                 .reduce(Integer::sum);
         sb.append(numChildrenBorn).append("\n\n");
+        long end6 = System.currentTimeMillis();
 
+        long start7 = System.currentTimeMillis();
         sb.append("7) Number of unique names: ");
         long numUniqueNames = records
                 .groupBy(USBabyNameRecord::getName)
                 .keys()
                 .count();
         sb.append(numUniqueNames).append("\n\n");
+        long end7 = System.currentTimeMillis();
 
+        long start8 = System.currentTimeMillis();
         sb.append("8) Number of unique states: ");
         long numUniqueStates = records
                 .groupBy(USBabyNameRecord::getState)
                 .keys()
                 .count();
         sb.append(numUniqueStates).append("\n\n");
+        long end8 = System.currentTimeMillis();
 
         System.out.println(sb);
         writeToFile(sb.toString(), outputFile);
+
+        // Write out how long it took to execute each task
+        System.out.format("Task 1: %d ms%n", end1 - start1);
+        System.out.format("Task 2: %d ms%n", end2 - start2);
+        System.out.format("Task 3: %d ms%n", end3 - start3);
+        System.out.format("Task 4: %d ms%n", end4 - start4);
+        System.out.format("Task 5: %d ms%n", end5 - start5);
+        System.out.format("Task 6: %d ms%n", end6 - start6);
+        System.out.format("Task 7: %d ms%n", end7 - start7);
+        System.out.format("Task 8: %d ms%n", end8 - start8);
+        System.out.format("Total: %d ms%n", end8 - start1);
     }
 
     /**
