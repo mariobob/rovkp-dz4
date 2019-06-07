@@ -1,18 +1,26 @@
 package hr.fer.ztel.rovkp.dz4.zad2;
 
 import hr.fer.ztel.rovkp.dz4.util.Iterables;
+import hr.fer.ztel.rovkp.dz4.util.SerializedComparator;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Comparator;
-import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static hr.fer.ztel.rovkp.dz4.util.SerializedComparator.serialize;
 
 // Download StateNames.csv: https://www.fer.unizg.hr/_download/repository/StateNames.zip
 /**
@@ -26,7 +34,10 @@ public class Main {
     /** File with names sorted by state. */
     private static final Path INPUT_FILE = Paths.get(HOME, "Desktop", "StateNames", "StateNames.csv");
     /** Output file for processed name data. */
-    private static final Path OUTPUT_FILE = INPUT_FILE.resolveSibling("state-names.csv");
+    private static final Path OUTPUT_FILE = INPUT_FILE.resolveSibling("StateNames-results.txt");
+
+    /** Apache Spark Java RDD only accepts a serialized comparator. */
+    private static final SerializedComparator<Tuple2<String, Integer>> TUPLE_COMPARING_INT = serialize((p1, p2) -> Integer.compare(p1._2, p2._2));
 
     /**
      * Program entry point.
@@ -61,16 +72,12 @@ public class Main {
         // Begin building string
         StringBuilder sb = new StringBuilder();
 
-        // TODO Do not collect immediately but use Spark's 'min' function
         sb.append("1) Most unpopular male name: ");
         String mostUnpopularMaleName = records
                 .filter(USBabyNameRecord::isMale)
                 .groupBy(USBabyNameRecord::getName)
                 .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
-                .collect()
-                .stream()
-                .min(Comparator.comparingInt(Tuple2::_2))
-                .get()
+                .min(TUPLE_COMPARING_INT)
                 ._1();
         sb.append(mostUnpopularMaleName).append("\n\n");
 
@@ -79,53 +86,50 @@ public class Main {
                 .filter(USBabyNameRecord::isFemale)
                 .groupBy(USBabyNameRecord::getName)
                 .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
-                .collect()
+                .top(10, TUPLE_COMPARING_INT)
                 .stream()
-                .sorted(Comparator.comparing(Tuple2::_2, Comparator.reverseOrder()))
-                .limit(10)
                 .map(Tuple2::_1)
                 .collect(Collectors.joining(", "));
         sb.append(most10PopularFemaleNames).append("\n\n");
 
-        // TODO Do not collect immediately but use Spark's 'max' function
         sb.append("3) State where most children were born in 1948: ");
         String stateWithMostChildrenBorn = records
                 .groupBy(USBabyNameRecord::getState)
                 .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
-                .collect()
-                .stream()
-                .max(Comparator.comparing(Tuple2::_2))
-                .get()
+                .max(TUPLE_COMPARING_INT)
                 ._1();
         sb.append(stateWithMostChildrenBorn).append("\n\n");
 
         sb.append("4) Number of newborns throughout the years: ");
-        List<Tuple2<Integer, Integer>> newbornsByYear = records
+        JavaPairRDD<Integer, Integer> newbornsByYearRDD = records
                 .groupBy(USBabyNameRecord::getYear)
                 .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
-                .sortByKey()
-                .collect();
-        newbornsByYear.forEach(pair -> sb.append("\n").append(pair._1).append(": ").append(pair._2));
-        sb.append("\n\n");
+                .sortByKey();
+        String numberOfNewbornsPerYear = newbornsByYearRDD
+                .map(pair -> String.format("\n%d: %d", pair._1, pair._2))
+                .reduce(String::concat);
+        sb.append(numberOfNewbornsPerYear).append("\n\n");
 
-        // TODO String doesn't get included
+        // Save these few records locally as map entries for fast search
+        Map<Integer, Integer> newbornsByYearMap = newbornsByYearRDD.collectAsMap();
+
         sb.append("5) Percentage of name 'Lucy' throughout the years: ");
-        records
+        String percentageOfNamePerYear = records
                 .filter(record -> "Lucy".equals(record.getName()))
                 .groupBy(USBabyNameRecord::getYear)
                 .aggregateByKey(0, (acc, values) -> Iterables.sum(values, USBabyNameRecord::getCount) + acc, Integer::sum)
                 .sortByKey()
-                .foreach(pair -> {
-                    double percent = 100.0 * pair._2 / newbornsByYear.stream().filter(p -> pair._1.equals(p._1)).findFirst().get()._2;
-                    sb.append("\n").append(pair._1).append(": ").append(String.format("%.2f", percent));
-                });
-        sb.append("\n\n");
+                .map(pair -> {
+                    double percent = 100.0 * pair._2 / newbornsByYearMap.get(pair._1);
+                    return String.format(Locale.US, "\n%d: %.2f", pair._1, percent);
+                })
+                .reduce(String::concat);
+        sb.append(percentageOfNamePerYear).append("\n\n");
 
         sb.append("6) Total number of children born: ");
-        long numChildrenBorn = newbornsByYear
-                .stream()
-                .mapToLong(Tuple2::_2)
-                .sum();
+        long numChildrenBorn = newbornsByYearRDD
+                .map(Tuple2::_2)
+                .reduce(Integer::sum);
         sb.append(numChildrenBorn).append("\n\n");
 
         sb.append("7) Number of unique names: ");
@@ -143,6 +147,21 @@ public class Main {
         sb.append(numUniqueStates).append("\n\n");
 
         System.out.println(sb);
+        writeToFile(sb.toString(), outputFile);
+    }
+
+    /**
+     * Writes the specified <tt>text</tt> to results output file.
+     *
+     * @param text text to be written to output file
+     */
+    private static void writeToFile(String text, Path outputFile) {
+        try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(outputFile, StandardCharsets.UTF_8))) {
+            writer.print(text);
+        } catch (IOException e) {
+            System.err.println("Error writing to file " + outputFile);
+            e.printStackTrace();
+        }
     }
 
 }
