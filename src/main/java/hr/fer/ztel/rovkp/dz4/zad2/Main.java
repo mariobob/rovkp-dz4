@@ -69,7 +69,20 @@ public class Main {
                 .map(USBabyNameRecord::parseUnchecked)
                 .filter(Objects::nonNull);
 
-        // Begin building string
+        // Build the string and write it out
+        String result = filterRelevantResults(records);
+        System.out.println(result);
+        writeToFile(result, outputFile);
+    }
+
+    /**
+     * Filters records multiple times and returns a bigass string
+     * consisting of an assignment questions and their answers.
+     *
+     * @param records records to be included in many transformations
+     * @return a string consisting of multiple lines
+     */
+    private static String filterRelevantResults(JavaRDD<USBabyNameRecord> records) {
         StringBuilder sb = new StringBuilder();
 
         sb.append("1) Most unpopular male name: ");
@@ -146,8 +159,7 @@ public class Main {
                 .count();
         sb.append(numUniqueStates).append("\n\n");
 
-        System.out.println(sb);
-        writeToFile(sb.toString(), outputFile);
+        return sb.toString();
     }
 
     /**

@@ -1,4 +1,4 @@
-package hr.fer.ztel.rovkp.dz4.zad1;
+package hr.fer.ztel.rovkp.dz4.zad3;
 
 import lombok.Builder;
 import lombok.Value;
@@ -33,6 +33,7 @@ import java.util.StringJoiner;
  *
  * <b>Note</b>: All time units are in seconds.
  */
+// Copy of hr.fer.ztel.rovkp.dz4.zad1.SensorscopeReading to fit this task
 @Value
 @Builder
 public class SensorscopeReading implements Comparable<SensorscopeReading> {
@@ -40,7 +41,7 @@ public class SensorscopeReading implements Comparable<SensorscopeReading> {
     /** Compares {@code SensorscopeReading} objects by time since epoch. */
     public static final Comparator<SensorscopeReading> EPOCH_COMPARATOR = Comparator.comparingLong(SensorscopeReading::getTimeSinceEpoch);
     /** Parsing delimiter regex. */
-    private static final String PARSE_DELIMITER_REGEX = " ";
+    private static final String PARSE_DELIMITER_REGEX = ",";
 
     private final long stationID;
     private final int year;
