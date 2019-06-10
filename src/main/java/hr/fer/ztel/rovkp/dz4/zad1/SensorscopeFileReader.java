@@ -18,13 +18,11 @@ public class SensorscopeFileReader {
     /** Directory with sensorscope numbered input files. */
     private final Path inputDirectory;
 
-    /** Gets filled with all lines from sensorscope files. */
-    private Stream<String> allLines = Stream.empty();
-
     /**
      * Constructs a new instance of {@code SensorScopeFileReader}.
      *
      * @param inputDirectory directory with sensorscope numbered input files
+     * @throws IllegalArgumentException if path does not exist or is not a directory
      */
     public SensorscopeFileReader(Path inputDirectory) {
         this.inputDirectory = FileUtility.requireDirectory(inputDirectory);
@@ -33,6 +31,8 @@ public class SensorscopeFileReader {
     /**
      * Returns a stream of ALL readings from all available sensorscope files from
      * the given input directory.
+     *
+     * @throws UncheckedIOException if an I/O error occurs
      */
     public Stream<SensorscopeReading> getReadingsFromSensorscopeFiles() {
         return getLinesFromSensorscopeFiles()
@@ -43,18 +43,19 @@ public class SensorscopeFileReader {
     /**
      * Returns a stream of ALL lines from all available sensorscope files from
      * the given input directory.
+     *
+     * @throws UncheckedIOException if an I/O error occurs
      */
     public Stream<String> getLinesFromSensorscopeFiles() {
-        try (Stream<Path> files = getSensorscopeFiles()) {
-            files.forEach(sensorscopeFile -> allLines = concatLinesFromFile(sensorscopeFile, allLines));
-        }
-
-        return allLines;
+        return getSensorscopeFiles()
+                .flatMap(SensorscopeFileReader::lines);
     }
 
     /**
      * Returns a stream of all available sensorscope files from the given input
      * directory.
+     *
+     * @throws UncheckedIOException if an I/O error occurs
      */
     public Stream<Path> getSensorscopeFiles() {
         try {
@@ -75,17 +76,16 @@ public class SensorscopeFileReader {
     }
 
     /**
-     * Creates a stream of lines from the specified <tt>file</tt> and concatenates it
-     * onto the given <tt>stream</tt> of lines. Returns a new stream.
+     * Creates a stream of lines from the specified <tt>file</tt> and returns it.
+     * Throws an unchecked IO exception in case of an error.
      *
      * @param file file to be turned into a stream
-     * @param stream existing stream with lines
      * @return a new stream
+     * @throws UncheckedIOException if an I/O error occurs
      */
-    private static Stream<String> concatLinesFromFile(Path file, Stream<String> stream) {
+    private static Stream<String> lines(Path file) {
         try {
-            Stream<String> lines = Files.lines(file);
-            return Stream.concat(stream, lines);
+            return Files.lines(file);
         } catch (IOException e) {
             throw new UncheckedIOException("Error occurred while reading lines from " + file, e);
         }
