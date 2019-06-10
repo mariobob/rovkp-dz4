@@ -24,6 +24,14 @@ public class Main {
     /** Output file for processed sensorscope data. */
     private static final Path OUTPUT_FILE = Paths.get(HOME, "Desktop", "sensorscope-monitor", "sensorscope-monitor-network.txt");
 
+    /** Duration of a single micro-group batch. */
+    private static final long BATCH_DURATION_SECS = 5;
+    /** Duration of a window for stream calculation. */
+    private static final long WINDOW_DURATION_SECS = 60;
+    /** Duration of a single slide for stream calculation. */
+    private static final long SLIDE_DURATION_SECS = 10;
+
+    // https://stackoverflow.com/questions/48010634/why-does-spark-application-fail-with-ioexception-null-entry-in-command-strin/48012285#48012285
     static {
         System.setProperty("hadoop.home.dir", "C:\\usr\\hadoop-2.8.1");
     }
@@ -49,7 +57,7 @@ public class Main {
             conf.setMaster("local[2]");
         }
 
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(5));
+        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(BATCH_DURATION_SECS));
 
         // Create a stream from text records and filter only valid records
         JavaDStream<SensorscopeReading> records = jssc.socketTextStream("localhost", SensorStreamGenerator.PORT)
@@ -57,10 +65,12 @@ public class Main {
                 .filter(Objects::nonNull);
 
         // Do the job
-        // TODO Doesn't work. Make this right.
         JavaPairDStream<Long, Double> result = records
                 .mapToPair(reading -> new Tuple2<>(reading.getStationID(), reading.getSolarPanelCurrent()))
-                .reduceByKey(Double::max);
+                .reduceByKeyAndWindow(
+                        Double::max,
+                        Durations.seconds(WINDOW_DURATION_SECS),
+                        Durations.seconds(SLIDE_DURATION_SECS));
 
         // Save aggregated tuples to text file
         result.dstream().saveAsTextFiles(outputFile.toString(), "txt");
